@@ -1,0 +1,12 @@
+{
+  "id": "heavy_hitter",
+  "name": "Heavy Hitter",
+  "rarity": "common",
+  "pool": "starter",
+  "tags": ["heavy"],
+  "trigger": "on_heavy_hit",
+  "effects": [
+    { "type": "modify_stat", "stat": "heavy_damage", "op": "multiply", "value": 1.3 },
+    { "type": "modify_stat", "stat": "heavy_knockback", "op": "multiply", "value": 1.3 }
+  ]
+}

@@ -1,0 +1,17 @@
+# Godot 4
+.godot/
+*.import
+
+# Export/build artifacts
+export/
+export_presets.cfg
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*.swp
+
+# Python (itch-assets tooling)
+__pycache__/
+*.pyc
+.venv/

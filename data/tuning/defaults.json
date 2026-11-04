@@ -1,0 +1,13 @@
+{
+  "match": {
+    "default_rounds_to_win": 2,
+    "stocks_per_round": 3
+  },
+  "map_rot": {
+    "start_delay_seconds": 60,
+    "collapse_interval_seconds": 2.0
+  },
+  "items": {
+    "max_per_player_per_round": 3
+  }
+}

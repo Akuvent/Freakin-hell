@@ -1,0 +1,127 @@
+[gd_scene load_steps=12 format=3]
+
+[ext_resource type="Script" path="res://scripts/characters/player.gd" id="1_player"]
+[ext_resource type="Texture2D" path="res://art/characters/prototype/poses/player_idle.png" id="tex_idle"]
+[ext_resource type="Texture2D" path="res://art/characters/prototype/poses/player_jump.png" id="tex_jump"]
+[ext_resource type="Texture2D" path="res://art/characters/prototype/poses/player_action1.png" id="tex_act1"]
+[ext_resource type="Texture2D" path="res://art/characters/prototype/poses/player_fall.png" id="tex_fall"]
+[ext_resource type="Texture2D" path="res://art/characters/prototype/poses/player_action2.png" id="tex_act2"]
+[ext_resource type="Texture2D" path="res://art/characters/prototype/poses/player_walk1.png" id="tex_walk1"]
+[ext_resource type="Texture2D" path="res://art/characters/prototype/poses/player_walk2.png" id="tex_walk2"]
+[ext_resource type="Texture2D" path="res://art/characters/prototype/poses/player_stand.png" id="tex_stand"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_body"]
+size = Vector2(15, 25)
+
+[sub_resource type="SpriteFrames" id="SpriteFrames_player"]
+animations = [{
+"frames": [{
+"duration": 1.0,
+"texture": ExtResource("tex_act1")
+}, {
+"duration": 1.0,
+"texture": ExtResource("tex_act2")
+}],
+"loop": true,
+"name": &"attack_anim",
+"speed": 1.0
+}, {
+"frames": [{
+"duration": 1.0,
+"texture": ExtResource("tex_fall")
+}],
+"loop": true,
+"name": &"fall_anim",
+"speed": 5.0
+}, {
+"frames": [{
+"duration": 1.0,
+"texture": ExtResource("tex_act1")
+}, {
+"duration": 1.0,
+"texture": ExtResource("tex_act2")
+}],
+"loop": true,
+"name": &"heavy_attack_anim",
+"speed": 1.0
+}, {
+"frames": [{
+"duration": 1.0,
+"texture": ExtResource("tex_idle")
+}, {
+"duration": 1.0,
+"texture": ExtResource("tex_stand")
+}],
+"loop": true,
+"name": &"idle_anim",
+"speed": 1.0
+}, {
+"frames": [{
+"duration": 1.0,
+"texture": ExtResource("tex_jump")
+}],
+"loop": true,
+"name": &"jump_anim",
+"speed": 5.0
+}, {
+"frames": [{
+"duration": 1.0,
+"texture": ExtResource("tex_walk1")
+}, {
+"duration": 1.0,
+"texture": ExtResource("tex_walk2")
+}],
+"loop": true,
+"name": &"walk_anim",
+"speed": 5.0
+}]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_hitbox"]
+size = Vector2(25, 16)
+
+[sub_resource type="Gradient" id="Gradient_hitbox"]
+
+[sub_resource type="GradientTexture1D" id="GradientTexture1D_hitbox"]
+gradient = SubResource("Gradient_hitbox")
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_hurt"]
+size = Vector2(15, 25)
+
+[node name="PlayerBody" type="CharacterBody2D"]
+collision_layer = 2
+collision_mask = 1
+script = ExtResource("1_player")
+
+[node name="CharCollider" type="CollisionShape2D" parent="."]
+position = Vector2(-0.5, 3.5)
+shape = SubResource("RectangleShape2D_body")
+
+[node name="CharSprite2D" type="AnimatedSprite2D" parent="."]
+scale = Vector2(0.3, 0.291)
+sprite_frames = SubResource("SpriteFrames_player")
+animation = &"idle_anim"
+autoplay = "idle_anim"
+
+[node name="AttackArea" type="Area2D" parent="."]
+collision_layer = 4
+collision_mask = 8
+
+[node name="AttackAreaCollider" type="CollisionShape2D" parent="AttackArea"]
+position = Vector2(20.5, 3)
+shape = SubResource("RectangleShape2D_hitbox")
+
+[node name="AttackAreaSprite" type="Sprite2D" parent="AttackArea"]
+visible = false
+position = Vector2(21, 1)
+scale = Vector2(0.094, 4)
+texture = SubResource("GradientTexture1D_hitbox")
+
+[node name="HurtBox" type="Area2D" parent="."]
+collision_layer = 8
+collision_mask = 4
+
+[node name="HurtBoxCollision" type="CollisionShape2D" parent="HurtBox"]
+position = Vector2(-0.5, 3.5)
+shape = SubResource("RectangleShape2D_hurt")
+
+[connection signal="area_entered" from="HurtBox" to="." method="_on_hurt_box_area_entered"]
