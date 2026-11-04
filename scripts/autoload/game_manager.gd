@@ -1,7 +1,5 @@
 extends Node
 
-const P1_MAX_STOCKS := 3
-const P2_MAX_STOCKS := 3
 const IMPACT_INVERT_FRAMES := 5
 const IMPACT_BLACKOUT_FRAMES := 5
 const IMPACT_TIME_SCALE := 0.05
@@ -13,13 +11,17 @@ var p2_percent_label: Label
 var p1_stocks := 0
 var p2_stocks := 0
 var _impact_playing := false
-
+var _round_resolving := false
+var game_data : Dictionary = {} 
+var rounds_to_win : int
+var p1_rounds_won : int = 0
+var p2_rounds_won : int = 0
 
 func _ready() -> void:
 	# Deferred: the match scene's nodes may not exist yet when this autoload is ready.
 	call_deferred("_bind_match_ui")
-
-
+	game_data = load_game_data()
+	
 func _bind_match_ui() -> void:
 	var scene := get_tree().current_scene
 	if scene == null:
@@ -28,8 +30,7 @@ func _bind_match_ui() -> void:
 	p2_percent_label = scene.get_node_or_null("UI/P2_Percent") as Label
 	p1_stocks_label = scene.get_node_or_null("UI/P1_Stocks") as Label
 	p2_stocks_label = scene.get_node_or_null("UI/P2_Stocks") as Label
-	p1_stocks = P1_MAX_STOCKS
-	p2_stocks = P2_MAX_STOCKS
+	apply_game_data()
 	_refresh_stock_labels()
 
 	var p1 := scene.get_node_or_null("PlayerBody1")
@@ -79,15 +80,45 @@ func _on_p1_died() -> void:
 	p1_stocks = maxi(0, p1_stocks - 1)
 	_refresh_stock_labels()
 	if p1_stocks <= 0:
-		await _reload_match()
+		_resolve_round_soon()
 
 
 func _on_p2_died() -> void:
 	p2_stocks = maxi(0, p2_stocks - 1)
 	_refresh_stock_labels()
 	if p2_stocks <= 0:
+		_resolve_round_soon()
+
+
+# Waits one frame so that a double KO is seen as both stocks at zero.
+func _resolve_round_soon() -> void:
+	if _round_resolving:
+		return
+	_round_resolving = true
+	await get_tree().process_frame
+	_round_resolving = false
+
+	var match_over := false
+	if p1_stocks <= 0 and p2_stocks <= 0:
+		print("Draw: no round win")
+	elif p1_stocks <= 0:
+		p2_rounds_won += 1
+		if p2_rounds_won == rounds_to_win:
+			print("p2 won!")
+			match_over = true
+	elif p2_stocks <= 0:
+		p1_rounds_won += 1
+		if p1_rounds_won == rounds_to_win:
+			print("p1 won!")
+			match_over = true
+
+	if match_over:
+		end_match()
+	else:
 		await _reload_match()
 
+func end_match():
+	get_tree().set_pause(true)
 
 func _reload_match() -> void:
 	var tree := get_tree()
@@ -160,3 +191,33 @@ func play_impact() -> void:
 func _wait_frames(frames: int) -> void:
 	for i in maxi(frames, 1):
 		await get_tree().process_frame
+
+func _unhandled_input(event: InputEvent) -> void:
+	# Debug: press K to kill both fighters in the same frame.
+	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_K:
+		_debug_double_ko()
+
+
+func _debug_double_ko() -> void:
+	var scene := get_tree().current_scene
+	if scene == null:
+		return
+	var p1 := scene.get_node_or_null("PlayerBody1")
+	var p2 := scene.get_node_or_null("PlayerBody2")
+	if p1:
+		p1.die()
+	if p2:
+		p2.die()
+
+func load_game_data():
+	var file = FileAccess.open("res://data/tuning/defaults.json", FileAccess.READ)
+	var content = file.get_as_text()
+	return JSON.parse_string(content)
+
+func apply_game_data():
+	var match_section = game_data["match"]
+	var stocks = int(match_section["stocks_per_round"])
+	rounds_to_win = int(match_section["default_rounds_to_win"])
+	p1_stocks = stocks
+	p2_stocks = stocks
+	
