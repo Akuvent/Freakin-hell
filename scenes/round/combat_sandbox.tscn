@@ -4,9 +4,7 @@
 [ext_resource type="Script" uid="uid://dxcsenaa40u3k" path="res://scripts/camera/camera_shake.gd" id="2_cam"]
 [ext_resource type="Script" uid="uid://bhed60krlw8cm" path="res://scripts/map/world_boundary.gd" id="3_kill"]
 [ext_resource type="Shader" uid="uid://f8slok3gvntk" path="res://resources/shaders/impact_outline.gdshader" id="4_shader"]
-
-[sub_resource type="RectangleShape2D" id="RectangleShape2D_floor"]
-size = Vector2(900, 40)
+[ext_resource type="Script" uid="uid://ch034slgd4hn1" path="res://scenes/round/rot_controller.gd" id="5_o83gg"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_pit"]
 size = Vector2(1200, 80)
@@ -34,22 +32,15 @@ shadow_size = 8
 shadow_color = Color(0.2, 0.75, 0.85, 0.9)
 shadow_offset = Vector2(3, 3)
 
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_floor"]
+size = Vector2(900, 40)
+
 [node name="CombatSandbox" type="Node2D" unique_id=779182927]
 
 [node name="Camera2D" type="Camera2D" parent="." unique_id=89280855]
 position = Vector2(640, 360)
 zoom = Vector2(1.35, 1.35)
 script = ExtResource("2_cam")
-
-[node name="Floor" type="StaticBody2D" parent="." unique_id=306946426]
-position = Vector2(640, 420)
-
-[node name="CollisionShape2D" type="CollisionShape2D" parent="Floor" unique_id=1690822057]
-shape = SubResource("RectangleShape2D_floor")
-
-[node name="PlatformVisual" type="Polygon2D" parent="Floor" unique_id=1691647197]
-color = Color(0.18, 0.2, 0.28, 1)
-polygon = PackedVector2Array(-450, -20, 450, -20, 450, 20, -450, 20)
 
 [node name="PlayerBody1" parent="." unique_id=1035163072 instance=ExtResource("1_player")]
 position = Vector2(520, 380)
@@ -118,5 +109,41 @@ offset_bottom = 56.0
 theme_override_font_sizes/font_size = 28
 text = "×3"
 horizontal_alignment = 2
+
+[node name="RotController" type="Node2D" parent="." unique_id=1300155700]
+script = ExtResource("5_o83gg")
+
+[node name="Floor" type="StaticBody2D" parent="RotController" unique_id=306946426]
+position = Vector2(640, 420)
+scale = Vector2(0.325, 1)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="RotController/Floor" unique_id=1690822057]
+shape = SubResource("RectangleShape2D_floor")
+
+[node name="PlatformVisual" type="Polygon2D" parent="RotController/Floor" unique_id=1691647197]
+color = Color(0.18, 0.2, 0.28, 1)
+polygon = PackedVector2Array(-450, -20, 450, -20, 450, 20, -450, 20)
+
+[node name="Floor2" type="StaticBody2D" parent="RotController" unique_id=679582838]
+position = Vector2(370.472, 362.765)
+scale = Vector2(0.13, 1)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="RotController/Floor2" unique_id=146350418]
+shape = SubResource("RectangleShape2D_floor")
+
+[node name="PlatformVisual" type="Polygon2D" parent="RotController/Floor2" unique_id=2074589336]
+color = Color(0.18, 0.2, 0.28, 1)
+polygon = PackedVector2Array(-450, -20, 450, -20, 450, 20, -450, 20)
+
+[node name="Floor3" type="StaticBody2D" parent="RotController" unique_id=789122993]
+position = Vector2(1000, 316.39)
+scale = Vector2(0.13, 1)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="RotController/Floor3" unique_id=242869547]
+shape = SubResource("RectangleShape2D_floor")
+
+[node name="PlatformVisual" type="Polygon2D" parent="RotController/Floor3" unique_id=112290208]
+color = Color(0.18, 0.2, 0.28, 1)
+polygon = PackedVector2Array(-450, -20, 450, -20, 450, 20, -450, 20)
 
 [connection signal="body_entered" from="Pit" to="Pit" method="_on_body_entered"]

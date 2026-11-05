@@ -16,6 +16,9 @@ var game_data : Dictionary = {}
 var rounds_to_win : int
 var p1_rounds_won : int = 0
 var p2_rounds_won : int = 0
+# Seconds since the current round started. Only advances while a round is running.
+var round_clock := 0.0
+var _round_clock_running := false
 
 func _ready() -> void:
 	# Deferred: the match scene's nodes may not exist yet when this autoload is ready.
@@ -32,6 +35,7 @@ func _bind_match_ui() -> void:
 	p2_stocks_label = scene.get_node_or_null("UI/P2_Stocks") as Label
 	apply_game_data()
 	_refresh_stock_labels()
+	_start_round_clock()
 
 	var p1 := scene.get_node_or_null("PlayerBody1")
 	var p2 := scene.get_node_or_null("PlayerBody2")
@@ -43,6 +47,17 @@ func _bind_match_ui() -> void:
 		p1.damage_changed.connect(_on_p1_damaged)
 	if p2 and not p2.damage_changed.is_connected(_on_p2_damaged):
 		p2.damage_changed.connect(_on_p2_damaged)
+
+
+func _process(delta: float) -> void:
+	if _round_clock_running:
+		round_clock += delta
+
+
+# Starts a fresh round clock. Runs each time the match scene is bound, which happens at the start of every round.
+func _start_round_clock() -> void:
+	round_clock = 0.0
+	_round_clock_running = true
 
 
 func _refresh_stock_labels() -> void:
@@ -95,6 +110,8 @@ func _resolve_round_soon() -> void:
 	if _round_resolving:
 		return
 	_round_resolving = true
+	# Stop the clock as soon as the round is decided, so the result frame doesn't count.
+	_round_clock_running = false
 	await get_tree().process_frame
 	_round_resolving = false
 

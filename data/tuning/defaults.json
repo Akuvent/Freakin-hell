@@ -1,13 +1,17 @@
 {
   "match": {
-    "default_rounds_to_win": 2,
-    "stocks_per_round": 3
+	"default_rounds_to_win": 2,
+	"stocks_per_round": 3
   },
   "map_rot": {
-    "start_delay_seconds": 60,
-    "collapse_interval_seconds": 2.0
+	"glitch_start_seconds": 60,
+	"decision_seconds": 100,
+	"virus_chance": 0.2,
+	"virus_damage_per_second": 2.0,
+	"roll_interval_min_seconds": 10,
+	"roll_interval_max_seconds": 15
   },
   "items": {
-    "max_per_player_per_round": 3
+	"max_per_player_per_round": 3
   }
 }
