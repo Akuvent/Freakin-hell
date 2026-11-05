@@ -11,9 +11,13 @@ var p2_percent_label: Label
 var p1_stocks := 0
 var p2_stocks := 0
 var _impact_playing := false
+# True while a round result is being resolved. Stops a second death in the same frame from resolving it twice.
 var _round_resolving := false
+# Parsed contents of res://data/tuning/defaults.json, loaded in _ready().
 var game_data : Dictionary = {} 
+# Round wins needed to win the match. Set from defaults.json by apply_game_data().
 var rounds_to_win : int
+# Round wins this match. The match ends when one side reaches rounds_to_win.
 var p1_rounds_won : int = 0
 var p2_rounds_won : int = 0
 # Seconds since the current round started. Only advances while a round is running.
@@ -134,6 +138,8 @@ func _resolve_round_soon() -> void:
 	else:
 		await _reload_match()
 
+# Called when a side wins the match. Pauses the whole tree. Nothing in this file unpauses it,
+# so the game stays paused after the match ends.
 func end_match():
 	get_tree().set_pause(true)
 
@@ -226,15 +232,37 @@ func _debug_double_ko() -> void:
 	if p2:
 		p2.die()
 
-func load_game_data():
-	var file = FileAccess.open("res://data/tuning/defaults.json", FileAccess.READ)
-	var content = file.get_as_text()
-	return JSON.parse_string(content)
+# Reads and parses res://data/tuning/defaults.json. Returns an empty dictionary and logs an error if the file is missing or the JSON is invalid.
+func load_game_data() -> Dictionary:
+	var file := FileAccess.open("res://data/tuning/defaults.json", FileAccess.READ)
+	if file == null:
+		push_error("game_manager: could not open defaults.json")
+		return {}
+	var parsed = JSON.parse_string(file.get_as_text())
+	if not (parsed is Dictionary):
+		push_error("game_manager: defaults.json is not a valid JSON object")
+		return {}
+	return parsed
 
+# Sets stocks per round and rounds to win from the "match" section of game_data.
+# Runs on every UI bind, so stocks reset at the start of each round.
 func apply_game_data():
-	var match_section = game_data["match"]
-	var stocks = int(match_section["stocks_per_round"])
-	rounds_to_win = int(match_section["default_rounds_to_win"])
+	var match_section = game_data.get("match")
+	if not (match_section is Dictionary):
+		push_error("game_manager: 'match' section missing from defaults.json, using fallback values")
+		match_section = {}
+
+	var stocks := 3
+	if match_section.has("stocks_per_round"):
+		stocks = int(match_section["stocks_per_round"])
+	else:
+		push_error("game_manager: 'stocks_per_round' missing from defaults.json, using fallback 3")
+
+	rounds_to_win = 2
+	if match_section.has("default_rounds_to_win"):
+		rounds_to_win = int(match_section["default_rounds_to_win"])
+	else:
+		push_error("game_manager: 'default_rounds_to_win' missing from defaults.json, using fallback 2")
 	p1_stocks = stocks
 	p2_stocks = stocks
 	
