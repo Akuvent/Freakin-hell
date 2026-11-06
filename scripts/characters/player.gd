@@ -143,11 +143,11 @@ func _handle_jump(delta: float) -> void:
 	if is_on_floor() or coyote_timer > 0.0:
 		velocity.y = JUMP_VELOCITY
 		coyote_timer = 0.0
-		Sfx.jump(false)
+		Sfx.Jump(false)
 	elif jump_charge_left > 0:
 		velocity.y = JUMP_VELOCITY
 		jump_charge_left -= 1
-		Sfx.jump(true)
+		Sfx.Jump(true)
 		var direction := _move_input()
 		if direction:
 			velocity.x = direction * AIR_JUMP_HORIZONTAL_SPEED
@@ -161,7 +161,7 @@ func _update_footsteps(delta: float) -> void:
 		return
 	_footstep_timer -= delta
 	if _footstep_timer <= 0.0:
-		Sfx.footstep()
+		Sfx.Footstep()
 		_footstep_timer = FOOTSTEP_INTERVAL
 
 
@@ -255,7 +255,7 @@ func start_attack(kind: AttackKind) -> void:
 	sprite.frame = 1
 	sprite.pause()
 	_prepare_hit(kind)
-	Sfx.swing(is_heavy)
+	Sfx.Swing(is_heavy)
 	set_attack_hitbox_active(true)
 
 	await get_tree().create_timer(ATTACK_ACTIVE_TIME).timeout
@@ -311,7 +311,7 @@ func _play_startup_blink(kind: AttackKind) -> void:
 	sprite.modulate = Color(2, 2, 2)
 	await get_tree().create_timer(ready_delay).timeout
 	sprite.modulate = Color.WHITE
-	Sfx.attack_ready()
+	Sfx.AttackReady()
 #endregion
 
 #region Hit / death
@@ -325,9 +325,9 @@ func notify_attack_landed(victim: Node = null) -> void:
 		jump_charge_left += 1
 		attack_charge = clampi(attack_charge + 1, 0, ATTACK_CHARGE_MAX)
 		_freeze_for_hitstop()
-		Sfx.light_hit()
+		Sfx.LightHit()
 	else:
-		Sfx.heavy_hit()
+		Sfx.HeavyHit()
 	if victim.has_method("hurt"):
 		victim.hurt(current_hit, global_position.x, velocity.y)
 
@@ -348,7 +348,7 @@ func hurt(hit: HitData, attacker_x: float, attacker_velocity_y: float) -> void:
 	is_attack_active = false
 	_is_hovering_in_air = false
 	set_attack_hitbox_active(false)
-	Sfx.hurt()
+	Sfx.Hurt()
 
 	if hit.damage <= LIGHT_HIT_MAX_DAMAGE:
 		_play_hit_blink()

@@ -13,13 +13,13 @@ config_version=5
 config/name="Freakin' Hell"
 config/description="2D arena fighter — rot maps, card builds, local now / online later."
 run/main_scene="res://scenes/round/combat_sandbox.tscn"
-config/features=PackedStringArray("4.7", "Forward Plus")
+config/features=PackedStringArray("4.7", "C#", "Forward Plus")
 config/icon="res://icon.svg"
 
 [autoload]
 
 GameManager="*res://scripts/autoload/game_manager.gd"
-Sfx="*res://scripts/autoload/sfx.gd"
+Sfx="*res://scripts/autoload/Sfx.cs"
 
 [display]
 
@@ -27,6 +27,10 @@ window/size/viewport_width=1280
 window/size/viewport_height=720
 window/stretch/mode="canvas_items"
 window/handheld/orientation=1
+
+[dotnet]
+
+project/assembly_name="Freakin- Hell"
 
 [input]
 

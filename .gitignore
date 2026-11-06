@@ -6,6 +6,13 @@
 export/
 export_presets.cfg
 
+# C# / .NET build output (Godot C# projects)
+bin/
+obj/
+.mono/
+.vs/
+*.user
+
 # OS / editor
 .DS_Store
 Thumbs.db

@@ -1,13 +1,19 @@
 [gd_scene format=3 uid="uid://dc418iphvwbky"]
 
+[ext_resource type="Script" uid="uid://cgtvwpp5opidg" path="res://scripts/camera/CameraShake.cs" id="1_o83gg"]
 [ext_resource type="PackedScene" path="res://scenes/characters/player.tscn" id="1_player"]
-[ext_resource type="Script" uid="uid://dxcsenaa40u3k" path="res://scripts/camera/camera_shake.gd" id="2_cam"]
-[ext_resource type="Script" uid="uid://bhed60krlw8cm" path="res://scripts/map/world_boundary.gd" id="3_kill"]
+[ext_resource type="Script" uid="uid://o023hv4t54vm" path="res://scripts/map/WorldBoundary.cs" id="3_o83gg"]
 [ext_resource type="Shader" uid="uid://f8slok3gvntk" path="res://resources/shaders/impact_outline.gdshader" id="4_shader"]
-[ext_resource type="Script" uid="uid://ch034slgd4hn1" path="res://scenes/round/rot_controller.gd" id="5_o83gg"]
+[ext_resource type="Script" uid="uid://ccky6sbda14rp" path="res://scripts/round/RotController.cs" id="5_o83gg"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_pit"]
-size = Vector2(1200, 80)
+size = Vector2(1199, 80)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_o83gg"]
+size = Vector2(114, 642)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_3to44"]
+size = Vector2(114, 662.5)
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_impact"]
 shader = ExtResource("4_shader")
@@ -40,13 +46,23 @@ size = Vector2(900, 40)
 [node name="Camera2D" type="Camera2D" parent="." unique_id=89280855]
 position = Vector2(640, 360)
 zoom = Vector2(1.35, 1.35)
-script = ExtResource("2_cam")
+script = ExtResource("1_o83gg")
 
 [node name="PlayerBody1" parent="." unique_id=1035163072 instance=ExtResource("1_player")]
 position = Vector2(520, 380)
+jump_charge = null
+coyote_time = null
+facing_right = null
+action_move_left = null
+action_move_right = null
+action_jump = null
+action_attack = null
+action_heavy_attack = null
 
 [node name="PlayerBody2" parent="." unique_id=1247333577 instance=ExtResource("1_player")]
 position = Vector2(760, 380)
+jump_charge = null
+coyote_time = null
 facing_right = false
 action_move_left = &"p2_move_left"
 action_move_right = &"p2_move_right"
@@ -57,10 +73,23 @@ action_heavy_attack = &"p2_heavy_attack"
 [node name="Pit" type="Area2D" parent="." unique_id=691789350]
 position = Vector2(640, 520)
 collision_mask = 2
-script = ExtResource("3_kill")
+script = ExtResource("3_o83gg")
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="Pit" unique_id=644222146]
+position = Vector2(1, 150)
 shape = SubResource("RectangleShape2D_pit")
+
+[node name="CollisionShape2D4" type="CollisionShape2D" parent="Pit" unique_id=2095009088]
+position = Vector2(-1, -470)
+shape = SubResource("RectangleShape2D_pit")
+
+[node name="CollisionShape2D2" type="CollisionShape2D" parent="Pit" unique_id=1396838998]
+position = Vector2(-543, -188)
+shape = SubResource("RectangleShape2D_o83gg")
+
+[node name="CollisionShape2D3" type="CollisionShape2D" parent="Pit" unique_id=1237903632]
+position = Vector2(542, -176.25)
+shape = SubResource("RectangleShape2D_3to44")
 
 [node name="VFX" type="CanvasLayer" parent="." unique_id=1678391667]
 
@@ -146,4 +175,15 @@ shape = SubResource("RectangleShape2D_floor")
 color = Color(0.18, 0.2, 0.28, 1)
 polygon = PackedVector2Array(-450, -20, 450, -20, 450, 20, -450, 20)
 
-[connection signal="body_entered" from="Pit" to="Pit" method="_on_body_entered"]
+[node name="Floor4" type="StaticBody2D" parent="RotController" unique_id=1454649165]
+position = Vector2(989.11, 525)
+scale = Vector2(0.13, 1)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="RotController/Floor4" unique_id=665546898]
+shape = SubResource("RectangleShape2D_floor")
+
+[node name="PlatformVisual" type="Polygon2D" parent="RotController/Floor4" unique_id=2057665099]
+color = Color(0.18, 0.2, 0.28, 1)
+polygon = PackedVector2Array(-450, -20, 450, -20, 450, 20, -450, 20)
+
+[connection signal="body_entered" from="Pit" to="Pit" method="OnBodyEntered"]

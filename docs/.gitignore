@@ -1,0 +1,9 @@
+# Docs folder ignore rules.
+# The root .gitignore already covers OS and editor junk, so only docs-specific rules go here.
+
+# Everything in docs/ stays local. Keep this file tracked so the rule itself is shared.
+*
+!.gitignore
+
+# Marketing / store art (see PROJECT_LAYOUT.md). Large exports that don't belong in the repo.
+itch-assets/
