@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 public partial class RotController : Node2D
 {
-	public static readonly Dictionary<string, float> FALLBACK_SETTINGS = new Dictionary<string, float>
+	public static readonly Dictionary<string, float> FallbackSettings = new Dictionary<string, float>
 	{
 		{"glitch_start_seconds", 60},
 		{"decision_seconds", 100},
@@ -23,14 +23,14 @@ public partial class RotController : Node2D
 	public override void _Ready()
 	{
 		// Still needs a real source: GameManager is GDScript, so this line won't compile yet.
-		Dictionary<string, Dictionary<string, float>> gameData = GameManager.GameData;
+		Godot.Collections.Dictionary gameData = GameManager.GameData;
 
-		if (!gameData.TryGetValue("map_rot", out Dictionary<string, float> section))
+		if (!gameData.TryGetValue("map_rot", out Godot.Collections.Dictionary section))
 		{
 			GD.PushError("RotController.cs: 'map_rot' section missing from defaults.json, using fallback values");
-			section = new Dictionary<string, float>();
+			section = new Godot.Collections.Dictionary();
 		}
-		foreach (string key in FALLBACK_SETTINGS.Keys)
+		foreach (string key in FallbackSettings.Keys)
 		{
 			if (section.ContainsKey(key))
 			{
@@ -38,8 +38,8 @@ public partial class RotController : Node2D
 			}
 			else
 			{
-				GD.PushError($"RotController.cs: '{key}' missing from defaults.json, using fallback {FALLBACK_SETTINGS[key]}");
-				Settings[key] = FALLBACK_SETTINGS[key];
+				GD.PushError($"RotController.cs: '{key}' missing from defaults.json, using fallback {FallbackSettings[key]}");
+				Settings[key] = FallbackSettings[key];
 			}
 		}
 		foreach (Node child in GetChildren())
@@ -58,7 +58,7 @@ public partial class RotController : Node2D
 	// The round clock lives in GameManager (GameManager.round_clock). Read it here, don't count it here.
 	public override void _Process(double delta)
 	{
-		if (!GlitchStarted && GameManager.round_clock >= Settings["glitch_start_seconds"])
+		if (!GlitchStarted && GameManager.RoundClock >= Settings["glitch_start_seconds"])
 		{
 			StartGlitch();
 		}
