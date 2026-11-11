@@ -1,6 +1,6 @@
 using Godot;
 
-public partial class HitSpark : CPUParticles2D
+public partial class HitSpark : CpuParticles2D
 {
 	public void OnFinished()
 	{

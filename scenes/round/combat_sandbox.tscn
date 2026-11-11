@@ -50,25 +50,15 @@ script = ExtResource("1_o83gg")
 
 [node name="PlayerBody1" parent="." unique_id=1035163072 instance=ExtResource("1_player")]
 position = Vector2(520, 380)
-jump_charge = null
-coyote_time = null
-facing_right = null
-action_move_left = null
-action_move_right = null
-action_jump = null
-action_attack = null
-action_heavy_attack = null
 
 [node name="PlayerBody2" parent="." unique_id=1247333577 instance=ExtResource("1_player")]
 position = Vector2(760, 380)
-jump_charge = null
-coyote_time = null
-facing_right = false
-action_move_left = &"p2_move_left"
-action_move_right = &"p2_move_right"
-action_jump = &"p2_jump"
-action_attack = &"p2_attack"
-action_heavy_attack = &"p2_heavy_attack"
+FacingRight = false
+ActionMoveLeft = &"p2_move_left"
+ActionMoveRight = &"p2_move_right"
+ActionJump = &"p2_jump"
+ActionAttack = &"p2_attack"
+ActionHeavyAttack = &"p2_heavy_attack"
 
 [node name="Pit" type="Area2D" parent="." unique_id=691789350]
 position = Vector2(640, 520)

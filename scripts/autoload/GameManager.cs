@@ -53,21 +53,25 @@ public partial class GameManager : Node
 
 		Player p1 = scene.GetNodeOrNull<Player>("PlayerBody1");
 		Player p2 = scene.GetNodeOrNull<Player>("PlayerBody2");
-		if (p1 != null && !p1.Died.IsConnected(OnP1Died))
+		Callable onP1Died = new Callable(this, MethodName.OnP1Died);
+		Callable onP2Died = new Callable(this, MethodName.OnP2Died);
+		Callable onP1Damaged = new Callable(this, MethodName.OnP1Damaged);
+		Callable onP2Damaged = new Callable(this, MethodName.OnP2Damaged);
+		if (p1 != null && !p1.IsConnected(Player.SignalName.Died, onP1Died))
 		{
-			p1.Died.Connect(OnP1Died);
+			p1.Connect(Player.SignalName.Died, onP1Died);
 		}
-		if (p2 != null && !p2.Died.IsConnected(OnP2Died))
+		if (p2 != null && !p2.IsConnected(Player.SignalName.Died, onP2Died))
 		{
-			p2.Died.Connect(OnP2Died);
+			p2.Connect(Player.SignalName.Died, onP2Died);
 		}
-		if (p1 != null && !p1.DamageChanged.IsConnected(OnP1Damaged))
+		if (p1 != null && !p1.IsConnected(Player.SignalName.DamageChanged, onP1Damaged))
 		{
-			p1.DamageChanged.Connect(OnP1Damaged);
+			p1.Connect(Player.SignalName.DamageChanged, onP1Damaged);
 		}
-		if (p2 != null && !p2.DamageChanged.IsConnected(OnP2Damaged))
+		if (p2 != null && !p2.IsConnected(Player.SignalName.DamageChanged, onP2Damaged))
 		{
-			p2.DamageChanged.Connect(OnP2Damaged);
+			p2.Connect(Player.SignalName.DamageChanged, onP2Damaged);
 		}
 	}
 
@@ -286,7 +290,7 @@ public partial class GameManager : Node
 			// Shader styles (impact_outline.gdshader): 1 = invert, 2 = blackout with diagonal scratches.
 			// scratch_seed is rerolled so the scratch pattern changes on each impact.
 			material.SetShaderParameter("style", 2);
-			material.SetShaderParameter("scratch_seed", Mathf.Randf() * 1000.0f);
+			material.SetShaderParameter("scratch_seed", GD.Randf() * 1000.0f);
 		}
 		await WaitFrames(ImpactBlackoutFrames);
 

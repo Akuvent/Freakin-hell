@@ -5,9 +5,9 @@ public partial class WorldBoundary : Area2D
 {
 	public void OnBodyEntered(Node2D body)
 	{
-		if (body.HasMethod("die"))
+		if (body is Player player)
 		{
-			body.Call("die");
+			player.Die();
 		}
 	}
 }

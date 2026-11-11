@@ -7,8 +7,8 @@ public partial class RotController : Node2D
 	{
 		{"glitch_start_seconds", 60},
 		{"decision_seconds", 100},
-		{"virus_chance", 0.2},
-		{"virus_damage_per_second", 2.0},
+		{"virus_chance", 0.2f},
+		{"virus_damage_per_second", 2.0f},
 		{"roll_interval_min_seconds", 10},
 		{"roll_interval_max_seconds", 15},
 	};
@@ -18,23 +18,29 @@ public partial class RotController : Node2D
 	public float? NextRollTime = null;
 	public int DecidedCount = 0;
 	public List<Tween> GlitchTweens = new List<Tween>();
+	private GameManager _gameManager;
 
 	// Called when the node enters the scene tree for the first time.
 	public override void _Ready()
 	{
-		// Still needs a real source: GameManager is GDScript, so this line won't compile yet.
-		Godot.Collections.Dictionary gameData = GameManager.GameData;
+		_gameManager = GetNode<GameManager>("/root/GameManager");
+		Godot.Collections.Dictionary gameData = _gameManager.GameData;
+		Godot.Collections.Dictionary section;
 
-		if (!gameData.TryGetValue("map_rot", out Godot.Collections.Dictionary section))
+		if (!gameData.TryGetValue("map_rot", out Variant sectionVariant) || sectionVariant.VariantType != Variant.Type.Dictionary)
 		{
 			GD.PushError("RotController.cs: 'map_rot' section missing from defaults.json, using fallback values");
 			section = new Godot.Collections.Dictionary();
+		}
+		else
+		{
+			section = sectionVariant.AsGodotDictionary();
 		}
 		foreach (string key in FallbackSettings.Keys)
 		{
 			if (section.ContainsKey(key))
 			{
-				Settings[key] = section[key];
+				Settings[key] = section[key].AsSingle();
 			}
 			else
 			{
@@ -58,7 +64,7 @@ public partial class RotController : Node2D
 	// The round clock lives in GameManager (GameManager.round_clock). Read it here, don't count it here.
 	public override void _Process(double delta)
 	{
-		if (!GlitchStarted && GameManager.RoundClock >= Settings["glitch_start_seconds"])
+		if (!GlitchStarted && _gameManager.RoundClock >= Settings["glitch_start_seconds"])
 		{
 			StartGlitch();
 		}

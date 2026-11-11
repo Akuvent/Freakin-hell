@@ -1,6 +1,6 @@
 [gd_scene load_steps=12 format=3]
 
-[ext_resource type="Script" path="res://scripts/characters/player.gd" id="1_player"]
+[ext_resource type="Script" path="res://scripts/characters/Player.cs" id="1_player"]
 [ext_resource type="Texture2D" path="res://art/characters/prototype/poses/player_idle.png" id="tex_idle"]
 [ext_resource type="Texture2D" path="res://art/characters/prototype/poses/player_jump.png" id="tex_jump"]
 [ext_resource type="Texture2D" path="res://art/characters/prototype/poses/player_action1.png" id="tex_act1"]
@@ -124,4 +124,4 @@ collision_mask = 4
 position = Vector2(-0.5, 3.5)
 shape = SubResource("RectangleShape2D_hurt")
 
-[connection signal="area_entered" from="HurtBox" to="." method="_on_hurt_box_area_entered"]
+[connection signal="area_entered" from="HurtBox" to="." method="OnHurtBoxAreaEntered"]
