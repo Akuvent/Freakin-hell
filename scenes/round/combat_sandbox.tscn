@@ -95,21 +95,38 @@ mouse_filter = 2
 
 [node name="UI" type="CanvasLayer" parent="." unique_id=1878330069]
 
-[node name="P1_Percent" type="Label" parent="UI" unique_id=1386939299]
+[node name="P1_Hp" type="Label" parent="UI" unique_id=1386939299]
 offset_left = 24.0
 offset_top = 640.0
 offset_right = 200.0
 offset_bottom = 700.0
-text = "100%"
+text = "100 HP"
 label_settings = SubResource("LabelSettings_brymg")
 
-[node name="P2_Percent" type="Label" parent="UI" unique_id=804178014]
+[node name="P2_Hp" type="Label" parent="UI" unique_id=804178014]
 offset_left = 1080.0
 offset_top = 640.0
 offset_right = 1256.0
 offset_bottom = 700.0
-text = "100%"
+text = "100 HP"
 label_settings = SubResource("LabelSettings_o83gg")
+horizontal_alignment = 2
+
+[node name="P1_Score" type="Label" parent="UI" unique_id=651956657]
+offset_left = 26.0
+offset_top = 49.0
+offset_right = 202.0
+offset_bottom = 109.0
+text = "0"
+label_settings = SubResource("LabelSettings_brymg")
+
+[node name="P2_Score" type="Label" parent="UI" unique_id=1362996208]
+offset_left = 1146.0
+offset_top = 52.0
+offset_right = 1260.0
+offset_bottom = 112.0
+text = "0"
+label_settings = SubResource("LabelSettings_brymg")
 horizontal_alignment = 2
 
 [node name="P1_Stocks" type="Label" parent="UI" unique_id=127147738]

@@ -7,7 +7,7 @@ public partial class Player : CharacterBody2D
 	public delegate void DiedEventHandler();
 
 	[Signal]
-	public delegate void DamageChangedEventHandler(float amount);
+	public delegate void HpChangedEventHandler(float hp);
 
 	#region Movement
 	public const float MoveSpeed = 150.0f;
@@ -41,49 +41,53 @@ public partial class Player : CharacterBody2D
 	public const int AttackChargeMax = 5;
 	public const int HeavyAttackChargeCost = 3;
 	public const float AttackActiveTime = 0.1f;
-	public const float MoveLockOnHit = 0.12f;
+	public const float MaxHp = 100.0f;
 	public const float LightHitstop = 0.1f;
 	public const float LightHitMaxDamage = 8.0f; // hits at or below this are light hits
 	public const float HeavyImpactMinDamage = 9.0f; // hits at or above this trigger the impact screen
-	private static readonly PackedScene HitSparkScene = GD.Load<PackedScene>("res://scenes/vfx/hit_spark.tscn");
+	private PackedScene _hitSparkScene;
 
 	public bool IsWindingUp = false; // attack startup, before the hitbox is live
 	public bool IsAttackActive = false; // hitbox is live
 	private bool _isHoveringInAir = false; // aerial attack: holds position in the air
 	private int _attackSerial = 0; // bumped to cancel attack coroutines that are still waiting
-	public float MoveLockTimer = 0.0f;
 	public HitData CurrentHit;
-	public float TotalDamage = 0.0f;
+	public float CurrentHp = MaxHp;
+	public float VirusDamagePerSecond = 2.0f; // overwritten from defaults.json in _Ready
 	public bool HitLanded = false;
 	public int AttackCharge = 0;
 	#endregion
 
 	#region Node refs
-	public AnimatedSprite2D Sprite;
-	public Area2D AttackArea;
-	public CollisionShape2D AttackCollider;
-	public Sprite2D AttackSprite;
-	public CollisionShape2D HurtBoxCollision;
+	private AnimatedSprite2D _sprite;
+	private Area2D _attackArea;
+	private CollisionShape2D _attackCollider;
+	private Sprite2D _attackSprite;
+	private CollisionShape2D _hurtBoxCollision;
 	private float _colliderOffsetX = 0.0f; // distance from the body centre to the attack hitbox
 	private float _spriteOffsetX = 0.0f; // distance from the body centre to the attack sprite
 	private Sfx _sfx;
 	private GameManager _gameManager;
+	private MatchManager _matchManager;
 	#endregion
 
 	#region Lifecycle
 	public override void _Ready()
 	{
-		Sprite = GetNode<AnimatedSprite2D>("CharSprite2D");
-		AttackArea = GetNode<Area2D>("AttackArea");
-		AttackCollider = GetNode<CollisionShape2D>("AttackArea/AttackAreaCollider");
-		AttackSprite = GetNode<Sprite2D>("AttackArea/AttackAreaSprite");
-		HurtBoxCollision = GetNode<CollisionShape2D>("HurtBox/HurtBoxCollision");
+		_sprite = GetNode<AnimatedSprite2D>("CharSprite2D");
+		_attackArea = GetNode<Area2D>("AttackArea");
+		_attackCollider = GetNode<CollisionShape2D>("AttackArea/AttackAreaCollider");
+		_attackSprite = GetNode<Sprite2D>("AttackArea/AttackAreaSprite");
+		_hurtBoxCollision = GetNode<CollisionShape2D>("HurtBox/HurtBoxCollision");
 		_sfx = GetNode<Sfx>("/root/Sfx");
 		_gameManager = GetNode<GameManager>("/root/GameManager");
+		_matchManager = GetNode<MatchManager>("/root/MatchManager");
+		_hitSparkScene = GD.Load<PackedScene>("res://scenes/vfx/hit_spark.tscn");
+		LoadVirusDamage();
 
 		SpawnPos = GlobalPosition;
-		_colliderOffsetX = Mathf.Abs(AttackCollider.Position.X);
-		_spriteOffsetX = Mathf.Abs(AttackSprite.Position.X);
+		_colliderOffsetX = Mathf.Abs(_attackCollider.Position.X);
+		_spriteOffsetX = Mathf.Abs(_attackSprite.Position.X);
 		SetAttackHitboxActive(false);
 		ApplyFacing();
 	}
@@ -91,11 +95,6 @@ public partial class Player : CharacterBody2D
 	public override void _PhysicsProcess(double delta)
 	{
 		float deltaF = (float)delta;
-
-		if (MoveLockTimer > 0.0f)
-		{
-			MoveLockTimer = Mathf.Max(0.0f, MoveLockTimer - deltaF);
-		}
 
 		if (_isHoveringInAir)
 		{
@@ -105,16 +104,13 @@ public partial class Player : CharacterBody2D
 		{
 			PhysicsWhileAttacking(deltaF);
 		}
-		else if (MoveLockTimer > 0.0f)
-		{
-			PhysicsMoveLocked(deltaF);
-		}
 		else
 		{
 			PhysicsFreeControl(deltaF);
 		}
 
 		MoveAndSlide();
+		ApplyVirusDamage(deltaF);
 		UpdateFootsteps(deltaF);
 
 		// During wind-up, start_attack() holds the attack animation; don't let locomotion animations override it.
@@ -147,13 +143,6 @@ public partial class Player : CharacterBody2D
 			velocity.X = 0.0f;
 			Velocity = velocity;
 		}
-	}
-
-	private void PhysicsMoveLocked(float delta)
-	{
-		ApplyGravity(delta);
-		HandleJump(delta);
-		TryStartAttacks();
 	}
 
 	private void PhysicsFreeControl(float delta)
@@ -288,13 +277,13 @@ public partial class Player : CharacterBody2D
 
 	private void ApplyFacing()
 	{
-		Sprite.FlipH = !FacingRight;
-		Vector2 colliderPos = AttackCollider.Position;
+		_sprite.FlipH = !FacingRight;
+		Vector2 colliderPos = _attackCollider.Position;
 		colliderPos.X = FacingRight ? _colliderOffsetX : -_colliderOffsetX;
-		AttackCollider.Position = colliderPos;
-		Vector2 spritePos = AttackSprite.Position;
+		_attackCollider.Position = colliderPos;
+		Vector2 spritePos = _attackSprite.Position;
 		spritePos.X = FacingRight ? _spriteOffsetX : -_spriteOffsetX;
-		AttackSprite.Position = spritePos;
+		_attackSprite.Position = spritePos;
 	}
 	#endregion
 
@@ -324,9 +313,9 @@ public partial class Player : CharacterBody2D
 
 	private void SetAnim(StringName animName)
 	{
-		if (Sprite.Animation != animName)
+		if (_sprite.Animation != animName)
 		{
-			Sprite.Play(animName);
+			_sprite.Play(animName);
 		}
 	}
 	#endregion
@@ -362,9 +351,9 @@ public partial class Player : CharacterBody2D
 			velocity.X = 0.0f;
 			Velocity = velocity;
 		}
-		Sprite.Animation = anim;
-		Sprite.Frame = 0;
-		Sprite.Pause();
+		_sprite.Animation = anim;
+		_sprite.Frame = 0;
+		_sprite.Pause();
 
 		await PlayStartupBlink(kind);
 		if (serial != _attackSerial)
@@ -383,9 +372,9 @@ public partial class Player : CharacterBody2D
 		{
 			Velocity = Vector2.Zero;
 		}
-		Sprite.Animation = anim;
-		Sprite.Frame = 1;
-		Sprite.Pause();
+		_sprite.Animation = anim;
+		_sprite.Frame = 1;
+		_sprite.Pause();
 		PrepareHit(kind);
 		_sfx.Swing(isHeavy);
 		SetAttackHitboxActive(true);
@@ -416,10 +405,8 @@ public partial class Player : CharacterBody2D
 	{
 		bool isHeavy = kind == AttackKind.Heavy;
 		CurrentHit = new HitData();
-		// Per-move tuning: heavy hits deal 12 damage at 1.2x power; light hits deal 3 at 1.0x.
+		// Per-move tuning: heavy hits take 12 HP; light hits take 3 HP.
 		CurrentHit.Damage = isHeavy ? 12.0f : 3.0f;
-		CurrentHit.AttackPower = isHeavy ? 1.2f : 1.0f;
-		CurrentHit.BaseKnockback = 100.0f;
 		HitLanded = false;
 	}
 
@@ -433,9 +420,9 @@ public partial class Player : CharacterBody2D
 	public void SetAttackHitboxActive(bool isActive)
 	{
 		// Deferred because monitoring can't be changed during physics callbacks such as collision signals.
-		AttackArea.SetDeferred(Area2D.PropertyName.Monitoring, isActive);
-		AttackSprite.Visible = isActive;
-		AttackArea.SetDeferred(Area2D.PropertyName.Monitorable, isActive);
+		_attackArea.SetDeferred(Area2D.PropertyName.Monitoring, isActive);
+		_attackSprite.Visible = isActive;
+		_attackArea.SetDeferred(Area2D.PropertyName.Monitorable, isActive);
 	}
 
 	// Telegraph before the hitbox goes live. Heavy attacks blink 4 times with a 0.16s ready delay;
@@ -448,14 +435,14 @@ public partial class Player : CharacterBody2D
 
 		for (int i = 0; i < blinkCount; i++)
 		{
-			Sprite.Modulate = new Color(1.5f, 1.5f, 1.5f, 0.75f);
+			_sprite.Modulate = new Color(1.5f, 1.5f, 1.5f, 0.75f);
 			await ToSignal(GetTree().CreateTimer(0.04), SceneTreeTimer.SignalName.Timeout);
-			Sprite.Modulate = Colors.White;
+			_sprite.Modulate = Colors.White;
 			await ToSignal(GetTree().CreateTimer(0.04), SceneTreeTimer.SignalName.Timeout);
 		}
-		Sprite.Modulate = new Color(2.0f, 2.0f, 2.0f);
+		_sprite.Modulate = new Color(2.0f, 2.0f, 2.0f);
 		await ToSignal(GetTree().CreateTimer(readyDelay), SceneTreeTimer.SignalName.Timeout);
-		Sprite.Modulate = Colors.White;
+		_sprite.Modulate = Colors.White;
 		_sfx.AttackReady();
 	}
 	#endregion
@@ -483,7 +470,7 @@ public partial class Player : CharacterBody2D
 		}
 		if (victim is Player playerVictim)
 		{
-			playerVictim.Hurt(CurrentHit, GlobalPosition.X, Velocity.Y);
+			playerVictim.Hurt(CurrentHit, Velocity.Y);
 		}
 	}
 
@@ -500,7 +487,7 @@ public partial class Player : CharacterBody2D
 		}
 	}
 
-	public void Hurt(HitData hit, float attackerX, float attackerVelocityY)
+	public void Hurt(HitData hit, float attackerVelocityY)
 	{
 		if (hit == null)
 		{
@@ -517,38 +504,37 @@ public partial class Player : CharacterBody2D
 		{
 			_ = PlayHitBlink();
 			_ = FreezeForHitstop();
-			_gameManager.PlayLightHitFx("light");
+			_matchManager.PlayLightHitFx("light");
 		}
 		else if (hit.Damage >= HeavyImpactMinDamage)
 		{
-			_gameManager.PlayImpact();
+			_matchManager.PlayImpact();
 		}
 		SpawnHitSpark();
 
 		// attackerVelocityY is the ATTACKER's vertical speed (passed in from NotifyAttackLanded),
 		// not this fighter's. If the attacker is moving vertically, the hit deals 1.5x damage.
 		float airborneMultiplier = Mathf.Abs(attackerVelocityY) > 0.0f ? 1.5f : 1.0f;
-		TotalDamage += hit.Damage * airborneMultiplier;
-		EmitSignal(SignalName.DamageChanged, TotalDamage);
+		TakeDamage(hit.Damage * airborneMultiplier);
+	}
 
-		// Knockback grows with accumulated percent (TotalDamage ^ 1.5), scaled by the move's attack power.
-		float knockback = (hit.BaseKnockback + Mathf.Pow(TotalDamage, 1.5f) * 0.25f) * hit.AttackPower;
-		float pushDirection = Mathf.Sign(GlobalPosition.X - attackerX);
-		if (pushDirection == 0.0f)
+	// Every HP loss goes through here (hits and virus). Reaching 0 HP calls Die(), which is the one place that emits Died.
+	public void TakeDamage(float amount)
+	{
+		CurrentHp = Mathf.Max(0.0f, CurrentHp - amount);
+		EmitSignal(SignalName.HpChanged, CurrentHp);
+		if (CurrentHp <= 0.0f)
 		{
-			pushDirection = 1.0f;
+			Die();
 		}
-		// Horizontal push is weaker (0.8) than the upward launch (1.5).
-		Velocity = new Vector2(pushDirection * knockback * 0.8f, -knockback * 1.5f);
-		MoveLockTimer = MoveLockOnHit;
 	}
 
 	private void SpawnHitSpark()
 	{
-		HitSpark spark = HitSparkScene.Instantiate<HitSpark>();
+		HitSpark spark = _hitSparkScene.Instantiate<HitSpark>();
 		spark.Lifetime = LightHitstop * 2.0f;
 		GetTree().CurrentScene.AddChild(spark);
-		spark.GlobalPosition = HurtBoxCollision.GlobalPosition;
+		spark.GlobalPosition = _hurtBoxCollision.GlobalPosition;
 		spark.Emitting = true;
 	}
 
@@ -556,18 +542,64 @@ public partial class Player : CharacterBody2D
 	{
 		for (int i = 0; i < 2; i++)
 		{
-			Sprite.Modulate = new Color(1.5f, 1.5f, 1.5f, 0.55f);
+			_sprite.Modulate = new Color(1.5f, 1.5f, 1.5f, 0.55f);
 			await ToSignal(GetTree().CreateTimer(0.04), SceneTreeTimer.SignalName.Timeout);
-			Sprite.Modulate = Colors.White;
+			_sprite.Modulate = Colors.White;
 			await ToSignal(GetTree().CreateTimer(0.04), SceneTreeTimer.SignalName.Timeout);
 		}
-		Sprite.Modulate = Colors.White;
+		_sprite.Modulate = Colors.White;
+	}
+
+	// Reads virus_damage_per_second from the map_rot section of defaults.json. RotController logs missing keys, so this stays quiet.
+	private void LoadVirusDamage()
+	{
+		Godot.Collections.Dictionary gameData = _gameManager.GameData;
+		if (gameData.TryGetValue("map_rot", out Variant mapRot) && mapRot.VariantType == Variant.Type.Dictionary)
+		{
+			Godot.Collections.Dictionary mapRotSection = mapRot.AsGodotDictionary();
+			if (mapRotSection.ContainsKey("virus_damage_per_second"))
+			{
+				VirusDamagePerSecond = mapRotSection["virus_damage_per_second"].AsSingle();
+			}
+		}
+	}
+
+	// True if one of the contacts from the last MoveAndSlide is a floor (normal pointing up) in the virus group.
+	private bool IsStandingOnVirus()
+	{
+		if (!IsOnFloor())
+		{
+			return false;
+		}
+		for (int i = 0; i < GetSlideCollisionCount(); i++)
+		{
+			KinematicCollision2D contact = GetSlideCollision(i);
+			if (contact.GetNormal().Y > -0.7f)
+			{
+				continue; // not a floor contact
+			}
+			if (contact.GetCollider() is Node body && body.IsInGroup(RotController.VirusGroup))
+			{
+				return true;
+			}
+		}
+		return false;
+	}
+
+	// Damage only while standing on a virus platform. Uses the floor contact from MoveAndSlide, not an Area2D.
+	private void ApplyVirusDamage(float delta)
+	{
+		if (!IsStandingOnVirus())
+		{
+			return;
+		}
+		TakeDamage(VirusDamagePerSecond * delta);
 	}
 
 	public void Die()
 	{
-		TotalDamage = 0.0f;
-		EmitSignal(SignalName.DamageChanged, TotalDamage);
+		CurrentHp = MaxHp;
+		EmitSignal(SignalName.HpChanged, CurrentHp);
 		GlobalPosition = SpawnPos;
 		EmitSignal(SignalName.Died);
 		Velocity = Vector2.Zero;
