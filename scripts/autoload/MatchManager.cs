@@ -13,6 +13,7 @@ public partial class MatchManager : Node
 	public Label P2StocksLabel;
 	public Label P1HpLabel;
 	public Label P2HpLabel;
+	private Label _winLabel;
 	public int P1Stocks;
 	public int P2Stocks;
 
@@ -28,6 +29,7 @@ public partial class MatchManager : Node
 
 	public override void _Ready()
 	{
+		ProcessMode = ProcessModeEnum.Always;
 		_gameManager = GetNode<GameManager>("/root/GameManager");
 		CallDeferred(MethodName.BindArenaUI);
 	}
@@ -45,6 +47,7 @@ public partial class MatchManager : Node
 		P2StocksLabel = scene.GetNodeOrNull("UI/P2_Stocks") as Label;
 		Label p1Score = scene.GetNodeOrNull("UI/P1_Score") as Label;
 		Label p2Score = scene.GetNodeOrNull("UI/P2_Score") as Label;
+		_winLabel = scene.GetNodeOrNull("UI/WinLabel") as Label;
 		_gameManager.BindScoreLabels(p1Score, p2Score);
 
 		ApplyMatchTuningFromGameData();
@@ -229,6 +232,7 @@ public partial class MatchManager : Node
 				if (matchWinner != 0)
 				{
 					_gameManager.RecordMatchWin(matchWinner);
+					await WinAnimation(matchWinner);
 				}
 				await StartNewMatch();
 			}
@@ -411,5 +415,45 @@ public partial class MatchManager : Node
 		}
 		P1Stocks = stocks;
 		P2Stocks = stocks;
+	}
+
+	private async Task WinAnimation(int winner)
+	{
+		if (_winLabel == null)
+		{
+			GD.PushError("MatchManager: UI/WinLabel not found");
+			return;
+		}
+
+		SceneTree tree = GetTree();
+		tree.Paused = true;
+
+		float restTop = _winLabel.OffsetTop;
+		const float slideOffset = 48.0f;
+
+		_winLabel.Text = $"PLAYER {winner} WINS!";
+		_winLabel.Modulate = new Color(1f, 1f, 1f, 0f);
+		_winLabel.OffsetTop = restTop - slideOffset;
+		_winLabel.Visible = true;
+
+		Tween tween = CreateTween();
+		tween.TweenProperty(_winLabel, "modulate:a", 1.0f, 0.5f)
+			.SetTrans(Tween.TransitionType.Back).SetEase(Tween.EaseType.Out);
+		tween.Parallel().TweenProperty(_winLabel, "offset_top", restTop, 0.5f)
+			.SetTrans(Tween.TransitionType.Back).SetEase(Tween.EaseType.Out);
+		await ToSignal(tween, Tween.SignalName.Finished);
+
+		await ToSignal(tree.CreateTimer(1.5, true), SceneTreeTimer.SignalName.Timeout);
+
+		Tween tweenOut = CreateTween();
+		tweenOut.TweenProperty(_winLabel, "modulate:a", 0.0f, 0.5f)
+			.SetTrans(Tween.TransitionType.Back).SetEase(Tween.EaseType.In);
+		tweenOut.Parallel().TweenProperty(_winLabel, "offset_top", restTop - slideOffset, 0.5f)
+			.SetTrans(Tween.TransitionType.Back).SetEase(Tween.EaseType.In);
+		await ToSignal(tweenOut, Tween.SignalName.Finished);
+
+		_winLabel.Visible = false;
+		_winLabel.OffsetTop = restTop;
+		_winLabel.Modulate = Colors.White;
 	}
 }
