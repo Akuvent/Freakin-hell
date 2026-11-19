@@ -14,6 +14,7 @@ public partial class MatchManager : Node
 	public Label P1HpLabel;
 	public Label P2HpLabel;
 	private Label _winLabel;
+	private Label _roundClockLabel;
 	public int P1Stocks;
 	public int P2Stocks;
 
@@ -47,6 +48,7 @@ public partial class MatchManager : Node
 		P2StocksLabel = scene.GetNodeOrNull("UI/P2_Stocks") as Label;
 		Label p1Score = scene.GetNodeOrNull("UI/P1_Score") as Label;
 		Label p2Score = scene.GetNodeOrNull("UI/P2_Score") as Label;
+		_roundClockLabel = scene.GetNodeOrNull("UI/Clock") as Label;
 		_winLabel = scene.GetNodeOrNull("UI/WinLabel") as Label;
 		_gameManager.BindScoreLabels(p1Score, p2Score);
 
@@ -91,6 +93,22 @@ public partial class MatchManager : Node
 		if (_roundClockRunning)
 		{
 			RoundClock += (float)delta;
+			if (_roundClockLabel != null)
+			{
+				_roundClockLabel.Visible = true;
+				int totalSeconds = (int)Mathf.Floor(RoundClock);
+				int minutes = totalSeconds / 60;
+				int seconds = totalSeconds % 60;
+				_roundClockLabel.Text = $"{minutes}:{seconds:D2}";
+			}
+			else
+			{
+				GD.PushError("MatchManager: UI/Clock not found");
+			}
+		}
+		else if (_roundClockLabel != null)
+		{
+			_roundClockLabel.Visible = false;
 		}
 	}
 
