@@ -1,4 +1,5 @@
 using Godot;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 
 public partial class Player : CharacterBody2D
@@ -13,6 +14,7 @@ public partial class Player : CharacterBody2D
 	public const float FootstepInterval = 0.22f;
 
 	[Export] public string CharacterId = "default";
+	[Export] public int PlayerSlot = 1;
 	public CharacterStats Stats = new CharacterStats();
 	[Export] public int JumpCharge = 1; // air jumps restored on landing
 	[Export] public float CoyoteTime = 0.1f;
@@ -27,6 +29,11 @@ public partial class Player : CharacterBody2D
 	public float CoyoteTimer = 0.0f;
 	private float _footstepTimer = 0.0f;
 	public Vector2 SpawnPos;
+
+	public IReadOnlyList<CardDefinition> GetEquippedCards()
+	{
+		return _gameManager.GetEquippedCards(PlayerSlot);
+	}
 	#endregion
 
 	#region Combat state
@@ -422,9 +429,14 @@ public partial class Player : CharacterBody2D
 	private void PrepareHit(AttackKind kind)
 	{
 		bool isHeavy = kind == AttackKind.Heavy;
-		CurrentHit = new HitData();
-		// Per-move tuning: heavy hits take 12 HP; light hits take 3 HP.
-		CurrentHit.Damage = isHeavy ? Stats.HeavyAttackDamage : Stats.LightAttackDamage;
+		CurrentHit = new HitData
+		{
+			IsHeavy = isHeavy,
+		};
+		float baseDamage = isHeavy ? Stats.HeavyAttackDamage : Stats.LightAttackDamage;
+		string trigger = isHeavy ? "on_heavy_hit" : "on_light_hit";
+		string stat = isHeavy ? "heavy_damage" : "light_damage";
+		CurrentHit.Damage = CardStatResolver.Resolve(GetEquippedCards(), trigger, stat, baseDamage);
 		HitLanded = false;
 	}
 
@@ -475,7 +487,7 @@ public partial class Player : CharacterBody2D
 		HitLanded = true;
 		SetAttackHitboxActive(false);
 		// Light hits reward the attacker with an extra air jump and one attack charge toward a heavy attack.
-		if (CurrentHit.Damage <= Stats.LightMaxDamage)
+		if (!CurrentHit.IsHeavy)
 		{
 			JumpChargeLeft += 1;
 			AttackCharge = Mathf.Clamp(AttackCharge + 1, 0, Stats.AttackChargeMax);
@@ -518,13 +530,13 @@ public partial class Player : CharacterBody2D
 		SetAttackHitboxActive(false);
 		_sfx.Hurt();
 
-		if (hit.Damage <= attacker.Stats.LightMaxDamage)
+		if (!hit.IsHeavy)
 		{
 			_ = PlayHitBlink();
 			_ = FreezeForHitstop();
 			_matchManager.PlayLightHitFx("light");
 		}
-		else if (hit.Damage >= attacker.Stats.HeavyImpactMinDamage)
+		else
 		{
 			_matchManager.PlayImpact();
 		}
@@ -533,7 +545,12 @@ public partial class Player : CharacterBody2D
 		// attackerVelocityY is the ATTACKER's vertical speed (passed in from NotifyAttackLanded),
 		// not this fighter's. If the attacker is moving vertically, the hit deals 1.5x damage.
 		float airborneMultiplier = Mathf.Abs(attackerVelocityY) > 0.0f ? 1.5f : 1.0f;
-		float force = hit.Damage * attacker.Stats.KnockbackPerDamage * airborneMultiplier;
+		float knockMult = 1.0f;
+		if (hit.IsHeavy)
+		{
+			knockMult = CardStatResolver.Resolve(attacker.GetEquippedCards(), "on_heavy_hit", "heavy_knockback", 1.0f);
+		}
+		float force = hit.Damage * attacker.Stats.KnockbackPerDamage * knockMult * airborneMultiplier;
 		float dir = GetKnockbackDirection(attacker);
 		Velocity = new Vector2(dir * force, -force * attacker.Stats.KnockbackVerticalRatio);
 		_moveLockTimer = Stats.HitMoveLockSeconds;

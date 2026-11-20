@@ -1,0 +1,11 @@
+{
+  "id": "quick_charge",
+  "name": "Quick Charge",
+  "rarity": "common",
+  "pool": "starter",
+  "tags": ["charge"],
+  "trigger": "on_round_start",
+  "effects": [
+    { "type": "modify_stat", "stat": "attack_charge_max", "op": "add", "value": 1 }
+  ]
+}

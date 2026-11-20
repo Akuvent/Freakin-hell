@@ -53,6 +53,7 @@ position = Vector2(520, 380)
 
 [node name="PlayerBody2" parent="." unique_id=1247333577 instance=ExtResource("1_player")]
 position = Vector2(760, 380)
+PlayerSlot = 2
 FacingRight = false
 ActionMoveLeft = &"p2_move_left"
 ActionMoveRight = &"p2_move_right"

@@ -13,5 +13,9 @@
   },
   "items": {
 	"max_per_player_per_round": 3
+  },
+  "build": {
+	"sandbox_p1_cards": ["heavy_hitter"],
+	"sandbox_p2_cards": []
   }
 }

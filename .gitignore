@@ -18,6 +18,9 @@ obj/
 Thumbs.db
 *.swp
 
+# Cursor IDE (local agent rules; not part of the game)
+.cursor/
+
 # Python (itch-assets tooling)
 __pycache__/
 *.pyc
