@@ -10,12 +10,10 @@ public partial class Player : CharacterBody2D
 	public delegate void HpChangedEventHandler(float hp);
 
 	#region Movement
-	public const float MoveSpeed = 150.0f;
-	public const float JumpVelocity = -350.0f;
-	public const float AirControlSpeed = 560.0f; // how fast mid-air velocity moves toward input, per second
-	public const float AirJumpHorizontalSpeed = 150.0f;
 	public const float FootstepInterval = 0.22f;
 
+	[Export] public string CharacterId = "default";
+	public CharacterStats Stats = new CharacterStats();
 	[Export] public int JumpCharge = 1; // air jumps restored on landing
 	[Export] public float CoyoteTime = 0.1f;
 	[Export] public bool FacingRight = true;
@@ -38,13 +36,6 @@ public partial class Player : CharacterBody2D
 		Heavy,
 	}
 
-	public const int AttackChargeMax = 5;
-	public const int HeavyAttackChargeCost = 3;
-	public const float AttackActiveTime = 0.1f;
-	public const float MaxHp = 100.0f;
-	public const float LightHitstop = 0.1f;
-	public const float LightHitMaxDamage = 8.0f; // hits at or below this are light hits
-	public const float HeavyImpactMinDamage = 9.0f; // hits at or above this trigger the impact screen
 	private PackedScene _hitSparkScene;
 
 	public bool IsWindingUp = false; // attack startup, before the hitbox is live
@@ -52,10 +43,12 @@ public partial class Player : CharacterBody2D
 	private bool _isHoveringInAir = false; // aerial attack: holds position in the air
 	private int _attackSerial = 0; // bumped to cancel attack coroutines that are still waiting
 	public HitData CurrentHit;
-	public float CurrentHp = MaxHp;
+	public float CurrentHp = 100.0f;
 	public float VirusDamagePerSecond = 2.0f; // overwritten from defaults.json in _Ready
 	public bool HitLanded = false;
 	public int AttackCharge = 0;
+	// Brief post-hit lock: no ground snap / drift so launch velocity survives (platformer_fighter pattern).
+	private float _moveLockTimer = 0.0f;
 	#endregion
 
 	#region Node refs
@@ -83,6 +76,8 @@ public partial class Player : CharacterBody2D
 		_gameManager = GetNode<GameManager>("/root/GameManager");
 		_matchManager = GetNode<MatchManager>("/root/MatchManager");
 		_hitSparkScene = GD.Load<PackedScene>("res://scenes/vfx/hit_spark.tscn");
+		Stats = _gameManager.GetCharacterStats(CharacterId);
+		CurrentHp = Stats.MaxHp;
 		LoadVirusDamage();
 
 		SpawnPos = GlobalPosition;
@@ -95,6 +90,7 @@ public partial class Player : CharacterBody2D
 	public override void _PhysicsProcess(double delta)
 	{
 		float deltaF = (float)delta;
+		TickMoveLock(deltaF);
 
 		if (_isHoveringInAir)
 		{
@@ -103,6 +99,10 @@ public partial class Player : CharacterBody2D
 		else if (IsWindingUp || IsAttackActive)
 		{
 			PhysicsWhileAttacking(deltaF);
+		}
+		else if (_moveLockTimer > 0.0f)
+		{
+			PhysicsMoveLocked(deltaF);
 		}
 		else
 		{
@@ -133,16 +133,32 @@ public partial class Player : CharacterBody2D
 		Velocity = Vector2.Zero;
 	}
 
+	private void TickMoveLock(float delta)
+	{
+		if (_moveLockTimer > 0.0f)
+		{
+			_moveLockTimer = Mathf.Max(0.0f, _moveLockTimer - delta);
+		}
+	}
+
 	private void PhysicsWhileAttacking(float delta)
 	{
 		ApplyGravity(delta);
-		// Stop ground movement while attacking, but keep air momentum so aerial attacks carry through.
+		// Ground plant only; aerial swings must not erase knockback X.
 		if (IsOnFloor())
 		{
 			Vector2 velocity = Velocity;
 			velocity.X = 0.0f;
 			Velocity = velocity;
 		}
+	}
+
+	// Hit stun window: physics still runs, but locomotion must not overwrite launch velocity.
+	private void PhysicsMoveLocked(float delta)
+	{
+		ApplyGravity(delta);
+		HandleJump(delta);
+		TryStartAttacks();
 	}
 
 	private void PhysicsFreeControl(float delta)
@@ -195,7 +211,7 @@ public partial class Player : CharacterBody2D
 		if (IsOnFloor() || CoyoteTimer > 0.0f)
 		{
 			Vector2 velocity = Velocity;
-			velocity.Y = JumpVelocity;
+			velocity.Y = Stats.JumpVelocity;
 			Velocity = velocity;
 			CoyoteTimer = 0.0f;
 			_sfx.Jump(false);
@@ -203,7 +219,7 @@ public partial class Player : CharacterBody2D
 		else if (JumpChargeLeft > 0)
 		{
 			Vector2 velocity = Velocity;
-			velocity.Y = JumpVelocity;
+			velocity.Y = Stats.JumpVelocity;
 			Velocity = velocity;
 			JumpChargeLeft -= 1;
 			_sfx.Jump(true);
@@ -211,7 +227,7 @@ public partial class Player : CharacterBody2D
 			if (direction != 0.0f)
 			{
 				velocity = Velocity;
-				velocity.X = direction * AirJumpHorizontalSpeed;
+				velocity.X = direction * Stats.AirJumpHorizontalSpeed;
 				Velocity = velocity;
 				Face(direction);
 			}
@@ -238,7 +254,7 @@ public partial class Player : CharacterBody2D
 	{
 		if (!IsOnFloor())
 		{
-			ApplyAirControl(delta);
+			ApplyAirDrift(delta);
 			return;
 		}
 
@@ -246,7 +262,7 @@ public partial class Player : CharacterBody2D
 		Vector2 velocity = Velocity;
 		if (direction != 0.0f)
 		{
-			velocity.X = direction * MoveSpeed;
+			velocity.X = direction * Stats.MoveSpeed;
 			Velocity = velocity;
 			Face(direction);
 		}
@@ -257,16 +273,18 @@ public partial class Player : CharacterBody2D
 		}
 	}
 
-	private void ApplyAirControl(float delta)
+	// Weak steer in air: fights knockback without snapping to walk speed.
+	private void ApplyAirDrift(float delta)
 	{
 		float direction = MoveInput();
-		if (direction != 0.0f)
+		if (direction == 0.0f)
 		{
-			Vector2 velocity = Velocity;
-			velocity.X = Mathf.MoveToward(velocity.X, direction * MoveSpeed, AirControlSpeed * delta);
-			Velocity = velocity;
-			Face(direction);
+			return;
 		}
+		Vector2 velocity = Velocity;
+		velocity.X = Mathf.MoveToward(velocity.X, direction * Stats.MoveSpeed, Stats.AirDriftAccel * delta);
+		Velocity = velocity;
+		Face(direction);
 	}
 
 	private void Face(float direction)
@@ -328,11 +346,11 @@ public partial class Player : CharacterBody2D
 
 	public void HeavyAttack()
 	{
-		if (AttackCharge < AttackChargeMax)
+		if (AttackCharge < Stats.AttackChargeMax)
 		{
 			return;
 		}
-		AttackCharge = Mathf.Max(0, AttackCharge - HeavyAttackChargeCost);
+		AttackCharge = Mathf.Max(0, AttackCharge - Stats.HeavyAttackChargeCost);
 		_ = StartAttack(AttackKind.Heavy);
 	}
 
@@ -379,7 +397,7 @@ public partial class Player : CharacterBody2D
 		_sfx.Swing(isHeavy);
 		SetAttackHitboxActive(true);
 
-		await ToSignal(GetTree().CreateTimer(AttackActiveTime), SceneTreeTimer.SignalName.Timeout);
+		await ToSignal(GetTree().CreateTimer(Stats.AttackActiveTime), SceneTreeTimer.SignalName.Timeout);
 		if (serial != _attackSerial)
 		{
 			return;
@@ -406,7 +424,7 @@ public partial class Player : CharacterBody2D
 		bool isHeavy = kind == AttackKind.Heavy;
 		CurrentHit = new HitData();
 		// Per-move tuning: heavy hits take 12 HP; light hits take 3 HP.
-		CurrentHit.Damage = isHeavy ? 12.0f : 3.0f;
+		CurrentHit.Damage = isHeavy ? Stats.HeavyAttackDamage : Stats.LightAttackDamage;
 		HitLanded = false;
 	}
 
@@ -457,10 +475,10 @@ public partial class Player : CharacterBody2D
 		HitLanded = true;
 		SetAttackHitboxActive(false);
 		// Light hits reward the attacker with an extra air jump and one attack charge toward a heavy attack.
-		if (CurrentHit.Damage <= LightHitMaxDamage)
+		if (CurrentHit.Damage <= Stats.LightMaxDamage)
 		{
 			JumpChargeLeft += 1;
-			AttackCharge = Mathf.Clamp(AttackCharge + 1, 0, AttackChargeMax);
+			AttackCharge = Mathf.Clamp(AttackCharge + 1, 0, Stats.AttackChargeMax);
 			_ = FreezeForHitstop();
 			_sfx.LightHit();
 		}
@@ -470,7 +488,7 @@ public partial class Player : CharacterBody2D
 		}
 		if (victim is Player playerVictim)
 		{
-			playerVictim.Hurt(CurrentHit, Velocity.Y);
+			playerVictim.Hurt(CurrentHit, Velocity.Y, this);
 		}
 	}
 
@@ -487,9 +505,9 @@ public partial class Player : CharacterBody2D
 		}
 	}
 
-	public void Hurt(HitData hit, float attackerVelocityY)
+	public void Hurt(HitData hit, float attackerVelocityY, Player attacker)
 	{
-		if (hit == null)
+		if (hit == null || attacker == null)
 		{
 			return;
 		}
@@ -500,13 +518,13 @@ public partial class Player : CharacterBody2D
 		SetAttackHitboxActive(false);
 		_sfx.Hurt();
 
-		if (hit.Damage <= LightHitMaxDamage)
+		if (hit.Damage <= attacker.Stats.LightMaxDamage)
 		{
 			_ = PlayHitBlink();
 			_ = FreezeForHitstop();
 			_matchManager.PlayLightHitFx("light");
 		}
-		else if (hit.Damage >= HeavyImpactMinDamage)
+		else if (hit.Damage >= attacker.Stats.HeavyImpactMinDamage)
 		{
 			_matchManager.PlayImpact();
 		}
@@ -515,7 +533,21 @@ public partial class Player : CharacterBody2D
 		// attackerVelocityY is the ATTACKER's vertical speed (passed in from NotifyAttackLanded),
 		// not this fighter's. If the attacker is moving vertically, the hit deals 1.5x damage.
 		float airborneMultiplier = Mathf.Abs(attackerVelocityY) > 0.0f ? 1.5f : 1.0f;
+		float force = hit.Damage * attacker.Stats.KnockbackPerDamage * airborneMultiplier;
+		float dir = GetKnockbackDirection(attacker);
+		Velocity = new Vector2(dir * force, -force * attacker.Stats.KnockbackVerticalRatio);
+		_moveLockTimer = Stats.HitMoveLockSeconds;
 		TakeDamage(hit.Damage * airborneMultiplier);
+	}
+
+	private float GetKnockbackDirection(Player attacker)
+	{
+		float dir = Mathf.Sign(GlobalPosition.X - attacker.GlobalPosition.X);
+		if (dir == 0.0f)
+		{
+			dir = attacker.FacingRight ? 1.0f : -1f;
+		}
+		return dir;
 	}
 
 	// Every HP loss goes through here (hits and virus). Reaching 0 HP calls Die(), which is the one place that emits Died.
@@ -532,7 +564,7 @@ public partial class Player : CharacterBody2D
 	private void SpawnHitSpark()
 	{
 		HitSpark spark = _hitSparkScene.Instantiate<HitSpark>();
-		spark.Lifetime = LightHitstop * 2.0f;
+		spark.Lifetime = Stats.LightHitstop * 2.0f;
 		GetTree().CurrentScene.AddChild(spark);
 		spark.GlobalPosition = _hurtBoxCollision.GlobalPosition;
 		spark.Emitting = true;
@@ -598,11 +630,12 @@ public partial class Player : CharacterBody2D
 
 	public void Die()
 	{
-		CurrentHp = MaxHp;
+		CurrentHp = Stats.MaxHp;
 		EmitSignal(SignalName.HpChanged, CurrentHp);
 		GlobalPosition = SpawnPos;
 		EmitSignal(SignalName.Died);
 		Velocity = Vector2.Zero;
+		_moveLockTimer = 0.0f;
 	}
 
 	private async Task FreezeForHitstop()
@@ -610,7 +643,7 @@ public partial class Player : CharacterBody2D
 		SetPhysicsProcess(false);
 		// CreateTimer args: processAlways=true, processInPhysics=false, ignoreTimeScale=true.
 		// Ignoring time scale keeps hitstop length unaffected by the impact slow-motion.
-		await ToSignal(GetTree().CreateTimer(LightHitstop, true, false, true), SceneTreeTimer.SignalName.Timeout);
+		await ToSignal(GetTree().CreateTimer(Stats.LightHitstop, true, false, true), SceneTreeTimer.SignalName.Timeout);
 		SetPhysicsProcess(true);
 	}
 	#endregion

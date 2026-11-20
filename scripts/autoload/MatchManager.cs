@@ -27,6 +27,8 @@ public partial class MatchManager : Node
 	private bool _roundClockRunning;
 
 	private GameManager _gameManager;
+	private Player _boundP1;
+	private Player _boundP2;
 
 	public override void _Ready()
 	{
@@ -58,6 +60,8 @@ public partial class MatchManager : Node
 
 		Player p1 = scene.GetNodeOrNull<Player>("PlayerBody1");
 		Player p2 = scene.GetNodeOrNull<Player>("PlayerBody2");
+		_boundP1 = p1;
+		_boundP2 = p2;
 		Callable onP1Died = new Callable(this, MethodName.OnP1Died);
 		Callable onP2Died = new Callable(this, MethodName.OnP2Died);
 		Callable onP1HpChanged = new Callable(this, MethodName.OnP1HpChanged);
@@ -80,11 +84,11 @@ public partial class MatchManager : Node
 		}
 		if (p1 != null)
 		{
-			SetHpLabel(P1HpLabel, p1.CurrentHp);
+			SetHpLabel(P1HpLabel, p1.CurrentHp, p1.Stats.MaxHp);
 		}
 		if (p2 != null)
 		{
-			SetHpLabel(P2HpLabel, p2.CurrentHp);
+			SetHpLabel(P2HpLabel, p2.CurrentHp, p2.Stats.MaxHp);
 		}
 	}
 
@@ -155,21 +159,24 @@ public partial class MatchManager : Node
 
 	public void OnP1HpChanged(float hp)
 	{
-		SetHpLabel(P1HpLabel, hp);
+		float maxHp = _boundP1 != null ? _boundP1.Stats.MaxHp : 100.0f;
+		SetHpLabel(P1HpLabel, hp, maxHp);
 	}
 
 	public void OnP2HpChanged(float hp)
 	{
-		SetHpLabel(P2HpLabel, hp);
+		float maxHp = _boundP2 != null ? _boundP2.Stats.MaxHp : 100.0f;
+		SetHpLabel(P2HpLabel, hp, maxHp);
 	}
 
-	public void SetHpLabel(Label label, float hp)
+	public void SetHpLabel(Label label, float hp, float maxHp)
 	{
 		if (label == null)
 		{
 			return;
 		}
-		float damageFraction = Mathf.Clamp((Player.MaxHp - hp) / Player.MaxHp, 0.0f, 1.0f);
+		float safeMax = Mathf.Max(maxHp, 1.0f);
+		float damageFraction = Mathf.Clamp((safeMax - hp) / safeMax, 0.0f, 1.0f);
 		Color color;
 		if (damageFraction < 0.5f)
 		{

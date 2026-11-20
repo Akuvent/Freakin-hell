@@ -1,0 +1,24 @@
+{
+  "default": {
+    "display_name": "Default",
+    "max_hp": 100,
+    "move_speed": 150,
+    "jump_velocity": -350,
+    "air_control_speed": 560,
+    "air_drift_accel": 280,
+    "air_jump_horizontal_speed": 150,
+    "hit_move_lock_seconds": 0.12,
+    "attack_charge_max": 5,
+    "heavy_attack_charge_cost": 3,
+    "attack_active_time": 0.1,
+    "light_hitstop": 0.1,
+    "light_max_damage": 8,
+    "heavy_impact_min_damage": 9,
+    "knockback_per_damage": 35,
+    "knockback_vertical_ratio": 0.55,
+    "attacks": {
+      "light": { "damage": 3 },
+      "heavy": { "damage": 12 }
+    }
+  }
+}

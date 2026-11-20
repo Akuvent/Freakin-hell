@@ -52,7 +52,7 @@ Adjust timers and `virus_chance` in JSON to iterate faster during development.
 - **Heavy hits**: higher damage, full-screen impact effect, slow motion briefly.
 - **Aerial hits**: if the attacker has vertical velocity, damage is multiplied.
 
-Attack and movement values are mostly in `scripts/characters/Player.cs`; match and rot values are in JSON.
+Fighter stats and attacks live in `data/characters/fighters.json`. Both players use the `default` entry unless you set `CharacterId` on a player instance. `HitData` is still the runtime object created when a strike goes active. Match and rot tuning stay in `data/tuning/defaults.json`.
 
 ## Project layout
 
