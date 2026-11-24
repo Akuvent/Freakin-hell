@@ -14,6 +14,7 @@ public partial class MatchManager : Node
 	public Label P1HpLabel;
 	public Label P2HpLabel;
 	private Label _winLabel;
+	private Label _roundsWonLabel;
 	private Label _roundClockLabel;
 	public int P1Stocks;
 	public int P2Stocks;
@@ -46,6 +47,7 @@ public partial class MatchManager : Node
 		}
 		P1HpLabel = scene.GetNodeOrNull("UI/P1_Hp") as Label;
 		P2HpLabel = scene.GetNodeOrNull("UI/P2_Hp") as Label;
+		_roundsWonLabel = scene.GetNodeOrNull("UI/RoundsWon") as Label;
 		P1StocksLabel = scene.GetNodeOrNull("UI/P1_Stocks") as Label;
 		P2StocksLabel = scene.GetNodeOrNull("UI/P2_Stocks") as Label;
 		Label p1Score = scene.GetNodeOrNull("UI/P1_Score") as Label;
@@ -225,6 +227,7 @@ public partial class MatchManager : Node
 
 		bool matchOver = false;
 		int matchWinner = 0;
+		bool roundScoreUpdated = false;
 		if (P1Stocks <= 0 && P2Stocks <= 0)
 		{
 			GD.Print("Draw: no round win");
@@ -232,6 +235,7 @@ public partial class MatchManager : Node
 		else if (P1Stocks <= 0)
 		{
 			P2RoundsWon++;
+			roundScoreUpdated = true;
 			if (P2RoundsWon == RoundsToWin)
 			{
 				matchWinner = 2;
@@ -242,6 +246,7 @@ public partial class MatchManager : Node
 		else if (P2Stocks <= 0)
 		{
 			P1RoundsWon++;
+			roundScoreUpdated = true;
 			if (P1RoundsWon == RoundsToWin)
 			{
 				matchWinner = 1;
@@ -252,13 +257,16 @@ public partial class MatchManager : Node
 
 		try
 		{
-			if (matchOver)
+			if (roundScoreUpdated || matchWinner != 0)
 			{
 				if (matchWinner != 0)
 				{
 					_gameManager.RecordMatchWin(matchWinner);
-					await WinAnimation(matchWinner);
 				}
+				await PlayRoundEndUi(roundScoreUpdated, matchWinner);
+			}
+			if (matchOver)
+			{
 				await StartNewMatch();
 			}
 			else
@@ -442,43 +450,150 @@ public partial class MatchManager : Node
 		P2Stocks = stocks;
 	}
 
-	private async Task WinAnimation(int winner)
+	// One end-of-round banner. Score alone on mid-series rounds; win + score together on match end.
+	private async Task PlayRoundEndUi(bool showScore, int matchWinner)
 	{
-		if (_winLabel == null)
+		bool showWin = matchWinner != 0;
+		if (!showScore && !showWin)
+		{
+			return;
+		}
+		if (showWin && _winLabel == null)
 		{
 			GD.PushError("MatchManager: UI/WinLabel not found");
 			return;
 		}
+		if (showScore && _roundsWonLabel == null)
+		{
+			GD.PushError("MatchManager: UI/RoundsWon not found");
+			return;
+		}
 
 		SceneTree tree = GetTree();
+		bool wasPaused = tree.Paused;
 		tree.Paused = true;
 
-		float restTop = _winLabel.OffsetTop;
 		const float slideOffset = 48.0f;
+		const float gapBelowWin = 8.0f;
+		const float fadeSeconds = 0.5f;
+		const float holdSeconds = 1.5f;
 
-		_winLabel.Text = $"PLAYER {winner} WINS!";
-		_winLabel.Modulate = new Color(1f, 1f, 1f, 0f);
-		_winLabel.OffsetTop = restTop - slideOffset;
-		_winLabel.Visible = true;
+		float winRestTop = 0.0f;
+		if (showWin)
+		{
+			winRestTop = _winLabel.OffsetTop;
+			_winLabel.Text = $"PLAYER {matchWinner} WINS!";
+			_winLabel.Modulate = new Color(1f, 1f, 1f, 0f);
+			_winLabel.OffsetTop = winRestTop - slideOffset;
+			_winLabel.Visible = true;
+		}
 
-		Tween tween = CreateTween();
-		tween.TweenProperty(_winLabel, "modulate:a", 1.0f, 0.5f)
-			.SetTrans(Tween.TransitionType.Back).SetEase(Tween.EaseType.Out);
-		tween.Parallel().TweenProperty(_winLabel, "offset_top", restTop, 0.5f)
-			.SetTrans(Tween.TransitionType.Back).SetEase(Tween.EaseType.Out);
-		await ToSignal(tween, Tween.SignalName.Finished);
+		float roundsSceneTop = 0.0f;
+		float roundsSceneBottom = 0.0f;
+		float roundsRestTop = 0.0f;
+		float roundsRestBottom = 0.0f;
+		if (showScore)
+		{
+			roundsSceneTop = _roundsWonLabel.OffsetTop;
+			roundsSceneBottom = _roundsWonLabel.OffsetBottom;
+			float roundsHeight = roundsSceneBottom - roundsSceneTop;
+			if (showWin)
+			{
+				float winHeight = _winLabel.OffsetBottom - _winLabel.OffsetTop;
+				roundsRestTop = winRestTop + winHeight + gapBelowWin;
+				roundsRestBottom = roundsRestTop + roundsHeight;
+			}
+			else
+			{
+				roundsRestTop = roundsSceneTop;
+				roundsRestBottom = roundsSceneBottom;
+			}
 
-		await ToSignal(tree.CreateTimer(1.5, true), SceneTreeTimer.SignalName.Timeout);
+			_roundsWonLabel.Text = $"{P1RoundsWon}:{P2RoundsWon}";
+			_roundsWonLabel.Modulate = new Color(1f, 1f, 1f, 0f);
+			_roundsWonLabel.OffsetTop = roundsRestTop - slideOffset;
+			_roundsWonLabel.OffsetBottom = roundsRestBottom - slideOffset;
+			_roundsWonLabel.Visible = true;
+		}
+
+		Tween tweenIn = CreateTween();
+		bool startedIn = false;
+		if (showWin)
+		{
+			tweenIn.TweenProperty(_winLabel, "modulate:a", 1.0f, fadeSeconds)
+				.SetTrans(Tween.TransitionType.Back).SetEase(Tween.EaseType.Out);
+			tweenIn.Parallel().TweenProperty(_winLabel, "offset_top", winRestTop, fadeSeconds)
+				.SetTrans(Tween.TransitionType.Back).SetEase(Tween.EaseType.Out);
+			startedIn = true;
+		}
+		if (showScore)
+		{
+			if (startedIn)
+			{
+				tweenIn.Parallel().TweenProperty(_roundsWonLabel, "modulate:a", 1.0f, fadeSeconds)
+					.SetTrans(Tween.TransitionType.Back).SetEase(Tween.EaseType.Out);
+			}
+			else
+			{
+				tweenIn.TweenProperty(_roundsWonLabel, "modulate:a", 1.0f, fadeSeconds)
+					.SetTrans(Tween.TransitionType.Back).SetEase(Tween.EaseType.Out);
+			}
+			tweenIn.Parallel().TweenProperty(_roundsWonLabel, "offset_top", roundsRestTop, fadeSeconds)
+				.SetTrans(Tween.TransitionType.Back).SetEase(Tween.EaseType.Out);
+			tweenIn.Parallel().TweenProperty(_roundsWonLabel, "offset_bottom", roundsRestBottom, fadeSeconds)
+				.SetTrans(Tween.TransitionType.Back).SetEase(Tween.EaseType.Out);
+		}
+		await ToSignal(tweenIn, Tween.SignalName.Finished);
+
+		await ToSignal(tree.CreateTimer(holdSeconds, true), SceneTreeTimer.SignalName.Timeout);
 
 		Tween tweenOut = CreateTween();
-		tweenOut.TweenProperty(_winLabel, "modulate:a", 0.0f, 0.5f)
-			.SetTrans(Tween.TransitionType.Back).SetEase(Tween.EaseType.In);
-		tweenOut.Parallel().TweenProperty(_winLabel, "offset_top", restTop - slideOffset, 0.5f)
-			.SetTrans(Tween.TransitionType.Back).SetEase(Tween.EaseType.In);
+		bool startedOut = false;
+		if (showWin)
+		{
+			tweenOut.TweenProperty(_winLabel, "modulate:a", 0.0f, fadeSeconds)
+				.SetTrans(Tween.TransitionType.Back).SetEase(Tween.EaseType.In);
+			tweenOut.Parallel().TweenProperty(_winLabel, "offset_top", winRestTop - slideOffset, fadeSeconds)
+				.SetTrans(Tween.TransitionType.Back).SetEase(Tween.EaseType.In);
+			startedOut = true;
+		}
+		if (showScore)
+		{
+			if (startedOut)
+			{
+				tweenOut.Parallel().TweenProperty(_roundsWonLabel, "modulate:a", 0.0f, fadeSeconds)
+					.SetTrans(Tween.TransitionType.Back).SetEase(Tween.EaseType.In);
+			}
+			else
+			{
+				tweenOut.TweenProperty(_roundsWonLabel, "modulate:a", 0.0f, fadeSeconds)
+					.SetTrans(Tween.TransitionType.Back).SetEase(Tween.EaseType.In);
+			}
+			tweenOut.Parallel().TweenProperty(_roundsWonLabel, "offset_top", roundsRestTop - slideOffset, fadeSeconds)
+				.SetTrans(Tween.TransitionType.Back).SetEase(Tween.EaseType.In);
+			tweenOut.Parallel().TweenProperty(_roundsWonLabel, "offset_bottom", roundsRestBottom - slideOffset, fadeSeconds)
+				.SetTrans(Tween.TransitionType.Back).SetEase(Tween.EaseType.In);
+		}
 		await ToSignal(tweenOut, Tween.SignalName.Finished);
 
-		_winLabel.Visible = false;
-		_winLabel.OffsetTop = restTop;
-		_winLabel.Modulate = Colors.White;
+		if (showWin)
+		{
+			_winLabel.Visible = false;
+			_winLabel.OffsetTop = winRestTop;
+			_winLabel.Modulate = Colors.White;
+		}
+		if (showScore)
+		{
+			_roundsWonLabel.Visible = false;
+			_roundsWonLabel.OffsetTop = roundsSceneTop;
+			_roundsWonLabel.OffsetBottom = roundsSceneBottom;
+			_roundsWonLabel.Modulate = Colors.White;
+		}
+
+		// Match win stays paused until StartNewMatch; mid-series rounds unpause for the reload.
+		if (!showWin)
+		{
+			tree.Paused = wasPaused;
+		}
 	}
 }
